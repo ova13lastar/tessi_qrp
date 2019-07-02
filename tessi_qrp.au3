@@ -10,8 +10,8 @@
 ; AutoIt3Wrapper
 #AutoIt3Wrapper_Res_ProductName=tessi_qrp
 #AutoIt3Wrapper_Res_Description=Outil de remplissage automatique du driver TessiPOST à partir d'un courrier QRP
-#AutoIt3Wrapper_Res_ProductVersion=1.0.3
-#AutoIt3Wrapper_Res_FileVersion=1.0.3
+#AutoIt3Wrapper_Res_ProductVersion=1.0.4
+#AutoIt3Wrapper_Res_FileVersion=1.0.4
 #AutoIt3Wrapper_Res_CompanyName=CNAMTS/CPAM_ARTOIS/APPLINAT
 #AutoIt3Wrapper_Res_LegalCopyright=yann.daniel@assurance-maladie.fr
 #AutoIt3Wrapper_Res_Language=1036
@@ -116,7 +116,7 @@ Func _Controller()
     Local $sKeyword = "_questionnaire"
     Local $sPdfFullPath = _YDGVars_Get("sAppDirDataPath") & "\" & $sKeyword & ".pdf"
     Local $sTxtFullPath = StringReplace($sPdfFullPath, ".pdf", ".txt")
-    Local $aTxt, $aAdr[0], $aNir[0], $aSiret[0], $sId, $sIdType
+    Local $aTxt, $aAdr[0], $aNir[0]
 
     ; On ne peut lancer l'application que si pdf actif
     _YDTool_SetTrayTip(_YDGVars_Get("sAppTitle"), "Analyse du contexte ...")
@@ -182,57 +182,32 @@ Func _Controller()
                 $bAdrEnd = True
             EndIf 
         EndIf
-        ; On recupere la ligne avec le SIRET
-        Local $sSiretLinePosition = StringInStr($aTxt[$i], "SIRET : ", 0)
-        If $sSiretLinePosition > 0 Then
-            $sIdType = "SIRET"
-            _ArrayAdd($aSiret, $sSiretLinePosition)
-            _ArrayAdd($aSiret, StringMid(StringStripWS($aTxt[$i], 3), 9))
-            ExitLoop
-        Endif             
         ; On recupere la ligne avec le NIR
-        Local $sNirLinePosition = StringInStr($aTxt[$i], " sociale ", 0)
+        Local $sNirLinePosition = StringInStr($aTxt[$i], " sécurité sociale ", 0)
         If $sNirLinePosition > 0 Then
-            $sIdType = "NIR"
             _ArrayAdd($aNir, $sNirLinePosition)
-            _ArrayAdd($aNir, $aTxt[$i])            
+            _ArrayAdd($aNir, $aTxt[$i])
             ExitLoop
         Endif
     Next
-    _YDLogger_Var("$sIdType", $sIdType, $sFuncName, 2)
     ;~ _ArrayDisplay($aNir)
-    ;~ _ArrayDisplay($aSiret)
     ;~ _ArrayDisplay($aAdr)
     If UBound($aAdr) < 2 Then
         Return _YDTool_SetMsgBoxError("Une erreur est survenue lors de la recuperation de l'adresse !", $sFuncName)
     EndIf    
-    ; On recupere le NIR
-    If $sIdType = "NIR" Then
-        If UBound($aNir) < 2 Then
-            Return _YDTool_SetMsgBoxError("Une erreur est survenue lors de la recuperation du NIR !", $sFuncName)
-        EndIf
-        _YDLogger_Var("$aNir[0]", $aNir[0], $sFuncName, 2)
-        _YDLogger_Var("$aNir[1]", $aNir[1], $sFuncName, 2)
-        Local $sNir = StringMid($aNir[1], $aNir[0]+9, 15)
-        _YDLogger_Var("$sNir (avant)", $sNir, $sFuncName, 2)
-        If StringLen($sNir) <> 15 Then
-            Return _YDTool_SetMsgBoxError("Un NIR doit faire 15 caracteres ! (" & StringLen($sNir) & ")", $sFuncName)
-        EndIf
-        $sId = StringMid($sNir,1,1) & " " & StringMid($sNir,2,2) & " " & StringMid($sNir,4,2) & " " & StringMid($sNir,6,2) & " " & StringMid($sNir,8,3) & " " & StringMid($sNir,11,3) & " " & StringMid($sNir,14,2)
-        _YDLogger_Var("$sId (apres)", $sId, $sFuncName, 2)
-    ; On recupere le SIRET
-    ElseIf $sIdType = "SIRET" Then
-        If UBound($aSiret) < 2 Then
-            Return _YDTool_SetMsgBoxError("Une erreur est survenue lors de la recuperation du SIRET !", $sFuncName)
-        EndIf
-        If StringLen($aSiret[1]) <> 14 Then
-            Return _YDTool_SetMsgBoxError("Un SIRET doit faire 14 caracteres ! (" & StringLen($aSiret) & ")", $sFuncName)
-        EndIf
-        $sId = $aSiret[1]
-        _YDLogger_Var("$sId", $sId, $sFuncName, 2)
-    Else
-        Return _YDTool_SetMsgBoxError("Une erreur est survenue lors de la recuperation du type de l'Id !", $sFuncName)
+    ; On recupere le NIR    
+    If UBound($aNir) < 2 Then
+        Return _YDTool_SetMsgBoxError("Une erreur est survenue lors de la recuperation du NIR !", $sFuncName)
     EndIf
+    _YDLogger_Var("$aNir[0]", $aNir[0], $sFuncName, 2)
+    _YDLogger_Var("$aNir[1]", $aNir[1], $sFuncName, 2)
+    Local $sNir = StringStripWS(StringRegExpReplace($aNir[1], "[^[:digit:]]", ""), 3)
+    _YDLogger_Var("$sNir (avant)", $sNir, $sFuncName, 2)
+    If StringLen($sNir) <> 15 Then
+        Return _YDTool_SetMsgBoxError("Un NIR doit faire 15 caracteres ! (" & StringLen($sNir) & ")", $sFuncName)
+    EndIf
+    $sNir = StringMid($sNir,1,1) & " " & StringMid($sNir,2,2) & " " & StringMid($sNir,4,2) & " " & StringMid($sNir,6,2) & " " & StringMid($sNir,8,3) & " " & StringMid($sNir,11,3) & " " & StringMid($sNir,14,2)
+    _YDLogger_Var("$sNir (apres)", $sNir, $sFuncName, 2)
     
     ; On lance l'impression via TessiPOST
     _YDTool_SetTrayTip(_YDGVars_Get("sAppTitle"), "Lancement de l'impression via " & $g_sPrinterName & " ...")
@@ -272,7 +247,7 @@ Func _Controller()
     Next
     ; On rempli le NIR
     _TESSI_DeleteTextInControl($hTessiPrinter, "[CLASS:ThunderRT6TextBox; INSTANCE:19]")
-    _TESSI_SetTextInControl($hTessiPrinter, "[CLASS:ThunderRT6TextBox; INSTANCE:19]", $sId)
+    _TESSI_SetTextInControl($hTessiPrinter, "[CLASS:ThunderRT6TextBox; INSTANCE:19]", $sNir)
     Sleep(1000)
     ; On change le FDP sur TESSI
     ControlCommand($hTessiPrinter, "", "[CLASS:ThunderRT6ComboBox; INSTANCE:5]", "SelectString", "FDP_CPAM624")
