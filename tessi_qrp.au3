@@ -10,8 +10,8 @@
 ; AutoIt3Wrapper
 #AutoIt3Wrapper_Res_ProductName=tessi_qrp
 #AutoIt3Wrapper_Res_Description=Outil de remplissage automatique du driver TessiPOST à partir d'un courrier QRP
-#AutoIt3Wrapper_Res_ProductVersion=1.0.4
-#AutoIt3Wrapper_Res_FileVersion=1.0.4
+#AutoIt3Wrapper_Res_ProductVersion=1.0.5
+#AutoIt3Wrapper_Res_FileVersion=1.0.5
 #AutoIt3Wrapper_Res_CompanyName=CNAMTS/CPAM_ARTOIS/APPLINAT
 #AutoIt3Wrapper_Res_LegalCopyright=yann.daniel@assurance-maladie.fr
 #AutoIt3Wrapper_Res_Language=1036
@@ -116,7 +116,7 @@ Func _Controller()
     Local $sKeyword = "_questionnaire"
     Local $sPdfFullPath = _YDGVars_Get("sAppDirDataPath") & "\" & $sKeyword & ".pdf"
     Local $sTxtFullPath = StringReplace($sPdfFullPath, ".pdf", ".txt")
-    Local $aTxt, $aAdr[0], $aNir[0]
+    Local $aTxt, $aAdr[0], $aNir[0], $sNir
 
     ; On ne peut lancer l'application que si pdf actif
     _YDTool_SetTrayTip(_YDGVars_Get("sAppTitle"), "Analyse du contexte ...")
@@ -174,6 +174,7 @@ Func _Controller()
     _YDTool_SetTrayTip(_YDGVars_Get("sAppTitle"), "Analyse du pdf ...")
     _FileReadToArray($sTxtFullPath, $aTxt)
     Local $bAdrEnd = False
+    Local $bTemoin = False
     For $i = 1 to UBound($aTxt) -1        
         ; On recupere l'adresse dans un tableau        
         If $bAdrEnd = False Then 
@@ -189,25 +190,32 @@ Func _Controller()
             _ArrayAdd($aNir, $aTxt[$i])
             ExitLoop
         Endif
+        ; On verifie qu'il ne s'agit pas d'un questionnaire temoin (car pas de NIR)
+        If StringInStr($aTxt[$i], "QUESTIONNAIRE TÉMOIN", 0) > 0 Then
+            $bTemoin = True
+        EndIf
     Next
     ;~ _ArrayDisplay($aNir)
     ;~ _ArrayDisplay($aAdr)
     If UBound($aAdr) < 2 Then
         Return _YDTool_SetMsgBoxError("Une erreur est survenue lors de la recuperation de l'adresse !", $sFuncName)
     EndIf    
-    ; On recupere le NIR    
-    If UBound($aNir) < 2 Then
+    ; On verifie si temoin et si NIR valide
+    If $bTemoin = True Then
+        $sNir = ""
+    Elseif UBound($aNir) < 2 Then
         Return _YDTool_SetMsgBoxError("Une erreur est survenue lors de la recuperation du NIR !", $sFuncName)
+    Else
+        _YDLogger_Var("$aNir[0]", $aNir[0], $sFuncName, 2)
+        _YDLogger_Var("$aNir[1]", $aNir[1], $sFuncName, 2)
+        $sNir = StringStripWS(StringRegExpReplace($aNir[1], "[^[:digit:]]", ""), 3)
+        _YDLogger_Var("$sNir (avant)", $sNir, $sFuncName, 2)
+        If StringLen($sNir) <> 15 Then
+            Return _YDTool_SetMsgBoxError("Un NIR doit faire 15 caracteres ! (" & StringLen($sNir) & ")", $sFuncName)
+        EndIf
+        $sNir = StringMid($sNir,1,1) & " " & StringMid($sNir,2,2) & " " & StringMid($sNir,4,2) & " " & StringMid($sNir,6,2) & " " & StringMid($sNir,8,3) & " " & StringMid($sNir,11,3) & " " & StringMid($sNir,14,2)
+        _YDLogger_Var("$sNir (apres)", $sNir, $sFuncName, 2)
     EndIf
-    _YDLogger_Var("$aNir[0]", $aNir[0], $sFuncName, 2)
-    _YDLogger_Var("$aNir[1]", $aNir[1], $sFuncName, 2)
-    Local $sNir = StringStripWS(StringRegExpReplace($aNir[1], "[^[:digit:]]", ""), 3)
-    _YDLogger_Var("$sNir (avant)", $sNir, $sFuncName, 2)
-    If StringLen($sNir) <> 15 Then
-        Return _YDTool_SetMsgBoxError("Un NIR doit faire 15 caracteres ! (" & StringLen($sNir) & ")", $sFuncName)
-    EndIf
-    $sNir = StringMid($sNir,1,1) & " " & StringMid($sNir,2,2) & " " & StringMid($sNir,4,2) & " " & StringMid($sNir,6,2) & " " & StringMid($sNir,8,3) & " " & StringMid($sNir,11,3) & " " & StringMid($sNir,14,2)
-    _YDLogger_Var("$sNir (apres)", $sNir, $sFuncName, 2)
     
     ; On lance l'impression via TessiPOST
     _YDTool_SetTrayTip(_YDGVars_Get("sAppTitle"), "Lancement de l'impression via " & $g_sPrinterName & " ...")
