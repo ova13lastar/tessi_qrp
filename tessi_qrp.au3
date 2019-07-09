@@ -10,8 +10,8 @@
 ; AutoIt3Wrapper
 #AutoIt3Wrapper_Res_ProductName=tessi_qrp
 #AutoIt3Wrapper_Res_Description=Outil de remplissage automatique du driver TessiPOST à partir d'un courrier QRP
-#AutoIt3Wrapper_Res_ProductVersion=1.0.5
-#AutoIt3Wrapper_Res_FileVersion=1.0.5
+#AutoIt3Wrapper_Res_ProductVersion=1.0.6
+#AutoIt3Wrapper_Res_FileVersion=1.0.6
 #AutoIt3Wrapper_Res_CompanyName=CNAMTS/CPAM_ARTOIS/APPLINAT
 #AutoIt3Wrapper_Res_LegalCopyright=yann.daniel@assurance-maladie.fr
 #AutoIt3Wrapper_Res_Language=1036
@@ -116,7 +116,7 @@ Func _Controller()
     Local $sKeyword = "_questionnaire"
     Local $sPdfFullPath = _YDGVars_Get("sAppDirDataPath") & "\" & $sKeyword & ".pdf"
     Local $sTxtFullPath = StringReplace($sPdfFullPath, ".pdf", ".txt")
-    Local $aTxt, $aAdr[0], $aNir[0], $sNir
+    Local $aTxt, $aAdr[0], $aNir[0], $aAdrLines[0], $sNir, $sControlClassName, $hTessiPrinter
 
     ; On ne peut lancer l'application que si pdf actif
     _YDTool_SetTrayTip(_YDGVars_Get("sAppTitle"), "Analyse du contexte ...")
@@ -227,13 +227,12 @@ Func _Controller()
     Send("t")
     Sleep(1000)
     Send("{ENTER}")
-    Local $hTessiPrinter = WinWaitActive($g_sPrinterName, "", 30)
+    $hTessiPrinter = WinWaitActive($g_sPrinterName, "", 30)
     If $hTessiPrinter = 0 Then
         Return _YDTool_SetMsgBoxError("L'imprimante " & $g_sPrinterName & " ne semble pas accessible !", $sFuncName)
     EndIf
     _YDTool_SetTrayTip(_YDGVars_Get("sAppTitle"), "Remplissage des donnees ...")
     ; On vide le pave d adresse
-    Local $aAdrLines[0]
     _ArrayAdd($aAdrLines, "[CLASS:ThunderRT6TextBox; INSTANCE:21]")
     _ArrayAdd($aAdrLines, "[CLASS:ThunderRT6TextBox; INSTANCE:18]")
     _ArrayAdd($aAdrLines, "[CLASS:ThunderRT6TextBox; INSTANCE:17]")
@@ -245,24 +244,27 @@ Func _Controller()
         _TESSI_DeleteTextInControl($hTessiPrinter, $aAdrLines[$i])
     Next
     ; On rempli le pave d adresse
-    Local $j=0
-    For $i = UBound($aAdrLines)-UBound($aAdr) To UBound($aAdrLines)-1
-        ;_YDLogger_Log("$i=" & $i)
-        ;_YDLogger_Log("$j=" & $j)
-        ;_YDLogger_Log("$aAdr[$j]=" & $aAdr[$j])
-        _TESSI_SetTextInControl($hTessiPrinter, $aAdrLines[$i], $aAdr[$j])
-        $j = $j + 1
+    For $i = 0 To UBound($aAdr)-1
+        If $i = UBound($aAdr)-1 Then
+            _YDLogger_Log("{TAB} dans le controle " & $aAdrLines[$i], $sFuncName, 2)
+            ControlFocus($hTessiPrinter, "", $aAdrLines[$i])
+            Send("{TAB}")            
+            Sleep(1000)
+            ExitLoop
+        EndIf
+        _TESSI_SetTextInControl($hTessiPrinter, $aAdrLines[$i], $aAdr[$i])       
     Next
     ; On rempli le NIR
-    _TESSI_DeleteTextInControl($hTessiPrinter, "[CLASS:ThunderRT6TextBox; INSTANCE:19]")
-    _TESSI_SetTextInControl($hTessiPrinter, "[CLASS:ThunderRT6TextBox; INSTANCE:19]", $sNir)
+    $sControlClassName = "[CLASS:ThunderRT6TextBox; INSTANCE:19]"
+    _TESSI_DeleteTextInControl($hTessiPrinter, $sControlClassName)
+    _TESSI_SetTextInControl($hTessiPrinter, $sControlClassName, $sNir)
     Sleep(1000)
     ; On change le FDP sur TESSI
-    ControlCommand($hTessiPrinter, "", "[CLASS:ThunderRT6ComboBox; INSTANCE:5]", "SelectString", "FDP_CPAM624")
-    ControlCommand($hTessiPrinter, "", "[CLASS:ThunderRT6ListBox; INSTANCE:3]", "SelectString", "Première page")    
+    _TESSI_SelectStringInControl($hTessiPrinter, "[CLASS:ThunderRT6ComboBox; INSTANCE:5]", "FDP_CPAM624")
+    _TESSI_SelectStringInControl($hTessiPrinter, "[CLASS:ThunderRT6ComboBox; INSTANCE:3]", "Première page")
     Sleep(1000)
     ; On coche le R1 (LRAR)
-    ControlFocus($hTessiPrinter, "", "[CLASS:ThunderRT6OptionButton; INSTANCE:6]")
+    _TESSI_SetCheckboxInControl($hTessiPrinter, "[CLASS:ThunderRT6OptionButton; INSTANCE:6]")
     If @error Then
         Return _YDTool_SetMsgBoxError("L'application " & _YDGVars_Get("sAppName") & " a rencontré un problème inconnu !", $sFuncName)
     Else
@@ -289,6 +291,7 @@ EndFunc
 ;                   2 - Unable to find the external program
 ; ===============================================================================================================================
 Func _XPDF_ToText($sPDFFile, $sTXTFile, $iFirstPage = 1, $iLastPage = 0, $bLayout = True)
+    Local $sFuncName = "_XPDF_ToText"
     Local $sXPDFToText = _YDGVars_Get("sAppDirVendorPath") & "\pdftotext.exe"
     Local $sOptions
 
@@ -300,10 +303,9 @@ Func _XPDF_ToText($sPDFFile, $sTXTFile, $iFirstPage = 1, $iLastPage = 0, $bLayou
     If $bLayout = True Then $sOptions &= " -layout"
 
     Local $iReturn = ShellExecuteWait ( $sXPDFToText , $sOptions & ' "' & $sPDFFile & '" "' & $sTXTFile & '"', @ScriptDir, "", @SW_HIDE)
+    _YDLogger_Var("$iReturn", $iReturn, $sFuncName, 2)
     If $iReturn = 0 Then Return 1
-
     Return 0
-
 EndFunc
 
 ; #FUNCTION# ====================================================================================================================
@@ -316,9 +318,9 @@ EndFunc
 ; Author ........: yann.daniel@assurance-maladie.fr
 ; ===============================================================================================================================
 Func _TESSI_DeleteTextInControl($_hTessiPrinter, $_sControlClassName)
-    ControlFocus($_hTessiPrinter, "", $_sControlClassName)
-    Send("{HOME}{SHIFTDOWN}{END}{SHIFTUP}")
-    Send("{DELETE}")
+    Local $sFuncName = "_TESSI_DeleteTextInControl"
+    _YDLogger_Log("Suppression du texte dans le controle " & $_sControlClassName, $sFuncName, 2)
+    ControlSetText($_hTessiPrinter, "", $_sControlClassName, "")
     Return True
 EndFunc
 
@@ -333,8 +335,41 @@ EndFunc
 ; Author ........: yann.daniel@assurance-maladie.fr
 ; ===============================================================================================================================
 Func _TESSI_SetTextInControl($_hTessiPrinter, $_sControlClassName, $_sText)
-    ControlFocus($_hTessiPrinter, "", $_sControlClassName)
-    ClipPut($_sText)
-    Send("^v")
+    Local $sFuncName = "_TESSI_SetTextInControl"
+    _YDLogger_Log("Saisie du texte dans le controle " & $_sControlClassName & " : " & $_sText, $sFuncName, 2)
+    ControlSetText($_hTessiPrinter, "", $_sControlClassName, $_sText)
+    Return True
+EndFunc
+
+; #FUNCTION# ====================================================================================================================
+; Name...........: _TESSI_SelectStringInControl
+; Description ...: Permet de sélectionner une valeur dans un controle de type liste déroulante ou liste défilante
+; Syntax.........: _TESSI_SelectStringInControl($_hTessiPrinter, $_sControlClassName, $_sText)
+; Parameters ....: $_hTessiPrinter       - Handle de la fenetre principale
+;                  $_sControlClassName   - Nom de la classe du controle
+;                  $_sText               - Texte à placer dans la zone de texte
+; Return values .: True
+; Author ........: yann.daniel@assurance-maladie.fr
+; ===============================================================================================================================
+Func _TESSI_SelectStringInControl($_hTessiPrinter, $_sControlClassName, $_sText)
+    Local $sFuncName = "_TESSI_SelectStringInControl"
+    _YDLogger_Log("Selection du texte dans le controle " & $_sControlClassName & " : " & $_sText, $sFuncName, 2)
+    ControlCommand($_hTessiPrinter, "", $_sControlClassName, "SelectString", $_sText)
+    Return True
+EndFunc
+
+; #FUNCTION# ====================================================================================================================
+; Name...........: _TESSI_SetCheckboxInControl
+; Description ...: Permet de cocher/décocher un controle de type case à cocher
+; Syntax.........: _TESSI_SetCheckboxInControl($_hTessiPrinter, $_sControlClassName)
+; Parameters ....: $_hTessiPrinter       - Handle de la fenetre principale
+;                  $_sControlClassName   - Nom de la classe du controle
+; Return values .: True
+; Author ........: yann.daniel@assurance-maladie.fr
+; ===============================================================================================================================
+Func _TESSI_SetCheckboxInControl($_hTessiPrinter, $_sControlClassName)
+    Local $sFuncName = "_TESSI_SetCheckboxInControl"
+    _YDLogger_Log("Checkbox du controle " & $_sControlClassName, $sFuncName, 2)
+    ControlFocus($_hTessiPrinter, "",$_sControlClassName)
     Return True
 EndFunc
