@@ -31,7 +31,7 @@
 #include "D:\Autoit_dev\Include\YDTool.au3"
 ; Includes Constants
 #include <StaticConstants.au3>
-#Include <WindowsConstants.au3>
+#include <WindowsConstants.au3>
 #include <TrayConstants.au3>
 ; Options
 AutoItSetOption("MustDeclareVars", 1)
@@ -87,17 +87,17 @@ HotKeySet("^!T", "_Controller")
 
 ; #MAIN LOOP# ====================================================================================================================
 While 1
-    Global $iMsg = TrayGetMsg()
-    Select
+	Global $iMsg = TrayGetMsg()
+	Select
 		Case $iMsg = $idTrayExit
 			_YDTool_ExitConfirm()
 		Case $iMsg = $idTrayAbout
 			_YDTool_GUIShowAbout()
-		Case  $iMsg = $idController
+		Case $iMsg = $idController
 			_Controller()
 	EndSelect
-    ;------------------------------
-    Sleep(10)
+	;------------------------------
+	Sleep(10)
 WEnd
 ; ===============================================================================================================================
 
@@ -112,166 +112,166 @@ WEnd
 ; Author ........: yann.daniel@assurance-maladie.fr
 ; ===============================================================================================================================
 Func _Controller()
-    Local $sFuncName = "_Controller"
-    Local $sKeyword = "_questionnaire"
-    Local $sPdfFullPath = _YDGVars_Get("sAppDirDataPath") & "\" & $sKeyword & ".pdf"
-    Local $sTxtFullPath = StringReplace($sPdfFullPath, ".pdf", ".txt")
-    Local $aTxt, $aAdr[0], $aNir[0], $aAdrLines[0], $sNir, $sControlClassName, $hTessiPrinter
+	Local $sFuncName = "_Controller"
+	Local $sKeyword = "_questionnaire"
+	Local $sPdfFullPath = _YDGVars_Get("sAppDirDataPath") & "\" & $sKeyword & ".pdf"
+	Local $sTxtFullPath = StringReplace($sPdfFullPath, ".pdf", ".txt")
+	Local $aTxt, $aAdr[0], $aNir[0], $aAdrLines[0], $sNir, $sControlClassName, $hTessiPrinter
 
-    ; On ne peut lancer l'application que si pdf actif
-    _YDTool_SetTrayTip(_YDGVars_Get("sAppTitle"), "Analyse du contexte ...")
-    $g_hPdf = WinActivate("[CLASS:AcrobatSDIWindow]")
-    If Not $g_hPdf Then
-        Return _YDTool_SetMsgBoxError("Le fichier .pdf issu de QRP doit etre ouvert et actif !", $sFuncName)
-    EndIf
+	; On ne peut lancer l'application que si pdf actif
+	_YDTool_SetTrayTip(_YDGVars_Get("sAppTitle"), "Analyse du contexte ...")
+	$g_hPdf = WinActivate("[CLASS:AcrobatSDIWindow]")
+	If Not $g_hPdf Then
+		Return _YDTool_SetMsgBoxError("Le fichier .pdf issu de QRP doit etre ouvert et actif !", $sFuncName)
+	EndIf
 
-    ; Le pdf doit comporter le mot "_questionnaire" dans son titre
-    Local $sPdfTitle = WinGetTitle($g_hPdf)
-    _YDLogger_Var("$sPdfTitle", $sPdfTitle, $sFuncName, 2)
-    If StringInStr($sPdfTitle, $sKeyword) = 0 Then
-        Return _YDTool_SetMsgBoxError('Le fichier .pdf doit avoir le mot-clé "' & $sKeyword & '" dans son titre !', $sFuncName)
-    ; Le pdf "_questionnaire.pdf" ne doit pas etre deja ouvert
-    ElseIf StringInStr($sPdfTitle, $sKeyword & ".pdf") > 0 Then
-        WinActivate($g_hPdf)
-        Send("^w")
-        Return _YDTool_SetMsgBoxError('Le fichier .pdf temporaire était déjà ouvert !', $sFuncName)
-    EndIf
+	; Le pdf doit comporter le mot "_questionnaire" dans son titre
+	Local $sPdfTitle = WinGetTitle($g_hPdf)
+	_YDLogger_Var("$sPdfTitle", $sPdfTitle, $sFuncName, 2)
+	If StringInStr($sPdfTitle, $sKeyword) = 0 Then
+		Return _YDTool_SetMsgBoxError('Le fichier .pdf doit avoir le mot-clé "' & $sKeyword & '" dans son titre !', $sFuncName)
+		; Le pdf "_questionnaire.pdf" ne doit pas etre deja ouvert
+	ElseIf StringInStr($sPdfTitle, $sKeyword & ".pdf") > 0 Then
+		WinActivate($g_hPdf)
+		Send("^w")
+		Return _YDTool_SetMsgBoxError('Le fichier .pdf temporaire était déjà ouvert !', $sFuncName)
+	EndIf
 
-    ; On recupere le chemin du fichier pdf
-    _YDTool_SetTrayTip(_YDGVars_Get("sAppTitle"), "Récuperation du chemin du pdf ...")
-    WinActivate($g_hPdf)
-    Send("^d")
-    If WinWaitActive("Propriétés du document", "", 5) = 0 Then
-         _YDLogger_Error("Fenêtre <Propriétés du document> non trouvee !", $sFuncName)
-    EndIf
-    Send("^d")
-    Local $sPdfTempPath = ControlGetText("Propriétés du document", "", "[CLASS:Static; INSTANCE:18]")
-    _YDLogger_Var("$sPdfTempPath (avant)", $sPdfTempPath, $sFuncName, 2)
-    ControlClick("Propriétés du document", "", "[CLASS:Button; INSTANCE:5]")    
-    If $sPdfTempPath = "" Then
-        Return _YDTool_SetMsgBoxError("Une erreur est survenue lors de la recuperation du chemin du pdf !", $sFuncName)
-    EndIf
-    $sPdfTempPath = $sPdfTempPath & StringLeft($sPdfTitle, StringInStr($sPdfTitle, ".pdf") + 4)
-    _YDLogger_Var("$sPdfTempPath (apres)", $sPdfTempPath, $sFuncName, 2)
-    If $sPdfTempPath = $sPdfFullPath Then
-        Return _YDTool_SetMsgBoxError("Une erreur est survenue lors de la recuperation du chemin du pdf ($sPdfTempPath = $sPdfFullPath) !", $sFuncName)
-    EndIf
-    
-    ; On enregistre le pdf dans le dossier de travail
-    _YDTool_SetTrayTip(_YDGVars_Get("sAppTitle"), "Copie locale du pdf ...")
-    If Not _YDTool_CopyFile($sPdfTempPath, $sPdfFullPath) Then
-        Return _YDTool_SetMsgBoxError("Une erreur est survenue lors de la copie locale du pdf !", $sFuncName)
-    EndIf
+	; On recupere le chemin du fichier pdf
+	_YDTool_SetTrayTip(_YDGVars_Get("sAppTitle"), "Récuperation du chemin du pdf ...")
+	WinActivate($g_hPdf)
+	Send("^d")
+	If WinWaitActive("Propriétés du document", "", 5) = 0 Then
+		_YDLogger_Error("Fenêtre <Propriétés du document> non trouvee !", $sFuncName)
+	EndIf
+	Send("^d")
+	Local $sPdfTempPath = ControlGetText("Propriétés du document", "", "[CLASS:Static; INSTANCE:18]")
+	_YDLogger_Var("$sPdfTempPath (avant)", $sPdfTempPath, $sFuncName, 2)
+	ControlClick("Propriétés du document", "", "[CLASS:Button; INSTANCE:5]")
+	If $sPdfTempPath = "" Then
+		Return _YDTool_SetMsgBoxError("Une erreur est survenue lors de la recuperation du chemin du pdf !", $sFuncName)
+	EndIf
+	$sPdfTempPath = $sPdfTempPath & StringLeft($sPdfTitle, StringInStr($sPdfTitle, ".pdf") + 4)
+	_YDLogger_Var("$sPdfTempPath (apres)", $sPdfTempPath, $sFuncName, 2)
+	If $sPdfTempPath = $sPdfFullPath Then
+		Return _YDTool_SetMsgBoxError("Une erreur est survenue lors de la recuperation du chemin du pdf ($sPdfTempPath = $sPdfFullPath) !", $sFuncName)
+	EndIf
 
-    ; On convertit le pdf en txt
-    _YDTool_SetTrayTip(_YDGVars_Get("sAppTitle"), "Conversion du pdf ...")
-    _YDTool_CreateFolderIfNotExist(_YDGVars_Get("sAppDirVendorPath"))
-    FileInstall(".\vendor\pdftotext.exe", _YDGVars_Get("sAppDirVendorPath") & "\pdftotext.exe", 1)
-    If _XPDF_ToText($sPdfFullPath, $sTxtFullPath, 1, 3, True) = 0 Then
-        Return _YDTool_SetMsgBoxError("Une erreur est survenue lors de la conversion !", $sFuncName)
-    EndIf
-    ; On traite les donnees dans un Array
-    _YDTool_SetTrayTip(_YDGVars_Get("sAppTitle"), "Analyse du pdf ...")
-    _FileReadToArray($sTxtFullPath, $aTxt)
-    Local $bAdrEnd = False
-    Local $bTemoin = False
-    For $i = 1 to UBound($aTxt) -1        
-        ; On recupere l'adresse dans un tableau        
-        If $bAdrEnd = False Then 
-            _ArrayAdd($aAdr, StringStripWS($aTxt[$i], 3))
-            If $aTxt[$i] = "" Then
-                $bAdrEnd = True
-            EndIf 
-        EndIf
-        ; On recupere la ligne avec le NIR
-        Local $sNirLinePosition = StringInStr($aTxt[$i], " sécurité sociale ", 0)
-        If $sNirLinePosition > 0 Then
-            _ArrayAdd($aNir, $sNirLinePosition)
-            _ArrayAdd($aNir, $aTxt[$i])
-            ExitLoop
-        Endif
-        ; On verifie qu'il ne s'agit pas d'un questionnaire temoin (car pas de NIR)
-        If StringInStr($aTxt[$i], "QUESTIONNAIRE TÉMOIN", 0) > 0 Then
-            $bTemoin = True
-        EndIf
-    Next
-    ;~ _ArrayDisplay($aNir)
-    ;~ _ArrayDisplay($aAdr)
-    If UBound($aAdr) < 2 Then
-        Return _YDTool_SetMsgBoxError("Une erreur est survenue lors de la recuperation de l'adresse !", $sFuncName)
-    EndIf    
-    ; On verifie si temoin et si NIR valide
-    If $bTemoin = True Then
-        $sNir = ""
-    Elseif UBound($aNir) < 2 Then
-        Return _YDTool_SetMsgBoxError("Une erreur est survenue lors de la recuperation du NIR !", $sFuncName)
-    Else
-        _YDLogger_Var("$aNir[0]", $aNir[0], $sFuncName, 2)
-        _YDLogger_Var("$aNir[1]", $aNir[1], $sFuncName, 2)
-        $sNir = StringStripWS(StringRegExpReplace($aNir[1], "[^[:digit:]]", ""), 3)
-        _YDLogger_Var("$sNir (avant)", $sNir, $sFuncName, 2)
-        If StringLen($sNir) <> 15 Then
-            Return _YDTool_SetMsgBoxError("Un NIR doit faire 15 caracteres ! (" & StringLen($sNir) & ")", $sFuncName)
-        EndIf
-        $sNir = StringMid($sNir,1,1) & " " & StringMid($sNir,2,2) & " " & StringMid($sNir,4,2) & " " & StringMid($sNir,6,2) & " " & StringMid($sNir,8,3) & " " & StringMid($sNir,11,3) & " " & StringMid($sNir,14,2)
-        _YDLogger_Var("$sNir (apres)", $sNir, $sFuncName, 2)
-    EndIf
-    
-    ; On lance l'impression via TessiPOST
-    _YDTool_SetTrayTip(_YDGVars_Get("sAppTitle"), "Lancement de l'impression via " & $g_sPrinterName & " ...")
-    Send("^p")
-    If WinWaitActive("Imprimer", "", 15) = 0 Then
-        Return _YDTool_SetMsgBoxError("Impossible de lancer l'impression !", $sFuncName)
-    EndIf
-    ControlFocus("Imprimer", "", "[CLASS:ComboBox; INSTANCE:1]")
-    Send("t")
-    Sleep(1000)
-    Send("{ENTER}")
-    $hTessiPrinter = WinWaitActive($g_sPrinterName, "", 30)
-    If $hTessiPrinter = 0 Then
-        Return _YDTool_SetMsgBoxError("L'imprimante " & $g_sPrinterName & " ne semble pas accessible !", $sFuncName)
-    EndIf
-    _YDTool_SetTrayTip(_YDGVars_Get("sAppTitle"), "Remplissage des donnees ...")
-    ; On vide le pave d adresse
-    _ArrayAdd($aAdrLines, "[CLASS:ThunderRT6TextBox; INSTANCE:21]")
-    _ArrayAdd($aAdrLines, "[CLASS:ThunderRT6TextBox; INSTANCE:18]")
-    _ArrayAdd($aAdrLines, "[CLASS:ThunderRT6TextBox; INSTANCE:17]")
-    _ArrayAdd($aAdrLines, "[CLASS:ThunderRT6TextBox; INSTANCE:16]")
-    _ArrayAdd($aAdrLines, "[CLASS:ThunderRT6TextBox; INSTANCE:15]")
-    _ArrayAdd($aAdrLines, "[CLASS:ThunderRT6TextBox; INSTANCE:14]")
-    _ArrayAdd($aAdrLines, "[CLASS:ThunderRT6TextBox; INSTANCE:13]")
-    For $i = 0 To UBound($aAdrLines)-1
-        _TESSI_DeleteTextInControl($hTessiPrinter, $aAdrLines[$i])
-    Next
-    ; On rempli le pave d adresse
-    For $i = 0 To UBound($aAdr)-1
-        If $i = UBound($aAdr)-1 Then
-            _YDLogger_Log("{TAB} dans le controle " & $aAdrLines[$i], $sFuncName, 2)
-            ControlFocus($hTessiPrinter, "", $aAdrLines[$i])
-            Send("{TAB}")            
-            Sleep(1000)
-            ExitLoop
-        EndIf
-        _TESSI_SetTextInControl($hTessiPrinter, $aAdrLines[$i], $aAdr[$i])       
-    Next
-    ; On rempli le NIR
-    $sControlClassName = "[CLASS:ThunderRT6TextBox; INSTANCE:19]"
-    _TESSI_DeleteTextInControl($hTessiPrinter, $sControlClassName)
-    _TESSI_SetTextInControl($hTessiPrinter, $sControlClassName, $sNir)
-    Sleep(1000)
-    ; On change le FDP sur TESSI
-    _TESSI_SelectStringInControl($hTessiPrinter, "[CLASS:ThunderRT6ComboBox; INSTANCE:5]", "FDP_CPAM624")
-    _TESSI_SelectStringInControl($hTessiPrinter, "[CLASS:ThunderRT6ComboBox; INSTANCE:3]", "Première page")
-    Sleep(1000)
-    ; On coche le R1 (LRAR)
-    _TESSI_SetCheckboxInControl($hTessiPrinter, "[CLASS:ThunderRT6OptionButton; INSTANCE:6]")
-    If @error Then
-        Return _YDTool_SetMsgBoxError("L'application " & _YDGVars_Get("sAppName") & " a rencontré un problème inconnu !", $sFuncName)
-    Else
-        _YDTool_SetTrayTip(_YDGVars_Get("sAppTitle"), "Fin du traitement.", 3, 1)
-        Return True
-    EndIf
-EndFunc
+	; On enregistre le pdf dans le dossier de travail
+	_YDTool_SetTrayTip(_YDGVars_Get("sAppTitle"), "Copie locale du pdf ...")
+	If Not _YDTool_CopyFile($sPdfTempPath, $sPdfFullPath) Then
+		Return _YDTool_SetMsgBoxError("Une erreur est survenue lors de la copie locale du pdf !", $sFuncName)
+	EndIf
+
+	; On convertit le pdf en txt
+	_YDTool_SetTrayTip(_YDGVars_Get("sAppTitle"), "Conversion du pdf ...")
+	_YDTool_CreateFolderIfNotExist(_YDGVars_Get("sAppDirVendorPath"))
+	FileInstall(".\vendor\pdftotext.exe", _YDGVars_Get("sAppDirVendorPath") & "\pdftotext.exe", 1)
+	If _XPDF_ToText($sPdfFullPath, $sTxtFullPath, 1, 3, True) = 0 Then
+		Return _YDTool_SetMsgBoxError("Une erreur est survenue lors de la conversion !", $sFuncName)
+	EndIf
+	; On traite les donnees dans un Array
+	_YDTool_SetTrayTip(_YDGVars_Get("sAppTitle"), "Analyse du pdf ...")
+	_FileReadToArray($sTxtFullPath, $aTxt)
+	Local $bAdrEnd = False
+	Local $bTemoin = False
+	For $i = 1 To UBound($aTxt) - 1
+		; On recupere l'adresse dans un tableau
+		If $bAdrEnd = False Then
+			_ArrayAdd($aAdr, StringStripWS($aTxt[$i], 3))
+			If $aTxt[$i] = "" Then
+				$bAdrEnd = True
+			EndIf
+		EndIf
+		; On recupere la ligne avec le NIR
+		Local $sNirLinePosition = StringInStr($aTxt[$i], " sécurité sociale ", 0)
+		If $sNirLinePosition > 0 Then
+			_ArrayAdd($aNir, $sNirLinePosition)
+			_ArrayAdd($aNir, $aTxt[$i])
+			ExitLoop
+		EndIf
+		; On verifie qu'il ne s'agit pas d'un questionnaire temoin (car pas de NIR)
+		If StringInStr($aTxt[$i], "QUESTIONNAIRE TÉMOIN", 0) > 0 Then
+			$bTemoin = True
+		EndIf
+	Next
+;~ _ArrayDisplay($aNir)
+;~ _ArrayDisplay($aAdr)
+	If UBound($aAdr) < 2 Then
+		Return _YDTool_SetMsgBoxError("Une erreur est survenue lors de la recuperation de l'adresse !", $sFuncName)
+	EndIf
+	; On verifie si temoin et si NIR valide
+	If $bTemoin = True Then
+		$sNir = ""
+	ElseIf UBound($aNir) < 2 Then
+		Return _YDTool_SetMsgBoxError("Une erreur est survenue lors de la recuperation du NIR !", $sFuncName)
+	Else
+		_YDLogger_Var("$aNir[0]", $aNir[0], $sFuncName, 2)
+		_YDLogger_Var("$aNir[1]", $aNir[1], $sFuncName, 2)
+		$sNir = StringStripWS(StringRegExpReplace($aNir[1], "[^[:digit:]]", ""), 3)
+		_YDLogger_Var("$sNir (avant)", $sNir, $sFuncName, 2)
+		If StringLen($sNir) <> 15 Then
+			Return _YDTool_SetMsgBoxError("Un NIR doit faire 15 caracteres ! (" & StringLen($sNir) & ")", $sFuncName)
+		EndIf
+		$sNir = StringMid($sNir, 1, 1) & " " & StringMid($sNir, 2, 2) & " " & StringMid($sNir, 4, 2) & " " & StringMid($sNir, 6, 2) & " " & StringMid($sNir, 8, 3) & " " & StringMid($sNir, 11, 3) & " " & StringMid($sNir, 14, 2)
+		_YDLogger_Var("$sNir (apres)", $sNir, $sFuncName, 2)
+	EndIf
+
+	; On lance l'impression via TessiPOST
+	_YDTool_SetTrayTip(_YDGVars_Get("sAppTitle"), "Lancement de l'impression via " & $g_sPrinterName & " ...")
+	Send("^p")
+	If WinWaitActive("Imprimer", "", 15) = 0 Then
+		Return _YDTool_SetMsgBoxError("Impossible de lancer l'impression !", $sFuncName)
+	EndIf
+	ControlFocus("Imprimer", "", "[CLASS:ComboBox; INSTANCE:1]")
+	Send("t")
+	Sleep(1000)
+	Send("{ENTER}")
+	$hTessiPrinter = WinWaitActive($g_sPrinterName, "", 30)
+	If $hTessiPrinter = 0 Then
+		Return _YDTool_SetMsgBoxError("L'imprimante " & $g_sPrinterName & " ne semble pas accessible !", $sFuncName)
+	EndIf
+	_YDTool_SetTrayTip(_YDGVars_Get("sAppTitle"), "Remplissage des donnees ...")
+	; On vide le pave d adresse
+	_ArrayAdd($aAdrLines, "[CLASS:ThunderRT6TextBox; INSTANCE:21]")
+	_ArrayAdd($aAdrLines, "[CLASS:ThunderRT6TextBox; INSTANCE:18]")
+	_ArrayAdd($aAdrLines, "[CLASS:ThunderRT6TextBox; INSTANCE:17]")
+	_ArrayAdd($aAdrLines, "[CLASS:ThunderRT6TextBox; INSTANCE:16]")
+	_ArrayAdd($aAdrLines, "[CLASS:ThunderRT6TextBox; INSTANCE:15]")
+	_ArrayAdd($aAdrLines, "[CLASS:ThunderRT6TextBox; INSTANCE:14]")
+	_ArrayAdd($aAdrLines, "[CLASS:ThunderRT6TextBox; INSTANCE:13]")
+	For $i = 0 To UBound($aAdrLines) - 1
+		_TESSI_DeleteTextInControl($hTessiPrinter, $aAdrLines[$i])
+	Next
+	; On rempli le pave d adresse
+	For $i = 0 To UBound($aAdr) - 1
+		If $i = UBound($aAdr) - 1 Then
+			_YDLogger_Log("{TAB} dans le controle " & $aAdrLines[$i], $sFuncName, 2)
+			ControlFocus($hTessiPrinter, "", $aAdrLines[$i])
+			Send("{TAB}")
+			Sleep(1000)
+			ExitLoop
+		EndIf
+		_TESSI_SetTextInControl($hTessiPrinter, $aAdrLines[$i], $aAdr[$i])
+	Next
+	; On rempli le NIR
+	$sControlClassName = "[CLASS:ThunderRT6TextBox; INSTANCE:19]"
+	_TESSI_DeleteTextInControl($hTessiPrinter, $sControlClassName)
+	_TESSI_SetTextInControl($hTessiPrinter, $sControlClassName, $sNir)
+	Sleep(1000)
+	; On change le FDP sur TESSI
+	_TESSI_SelectStringInControl($hTessiPrinter, "[CLASS:ThunderRT6ComboBox; INSTANCE:5]", "FDP_CPAM624")
+	_TESSI_SelectStringInControl($hTessiPrinter, "[CLASS:ThunderRT6ComboBox; INSTANCE:3]", "Première page")
+	Sleep(1000)
+	; On coche le R1 (LRAR)
+	_TESSI_SetCheckboxInControl($hTessiPrinter, "[CLASS:ThunderRT6OptionButton; INSTANCE:6]")
+	If @error Then
+		Return _YDTool_SetMsgBoxError("L'application " & _YDGVars_Get("sAppName") & " a rencontré un problème inconnu !", $sFuncName)
+	Else
+		_YDTool_SetTrayTip(_YDGVars_Get("sAppTitle"), "Fin du traitement.", 3, 1)
+		Return True
+	EndIf
+EndFunc   ;==>_Controller
 
 ; #FUNCTION# ====================================================================================================================
 ; Name...........: _XPDF_ToText
@@ -291,22 +291,22 @@ EndFunc
 ;                   2 - Unable to find the external program
 ; ===============================================================================================================================
 Func _XPDF_ToText($sPDFFile, $sTXTFile, $iFirstPage = 1, $iLastPage = 0, $bLayout = True)
-    Local $sFuncName = "_XPDF_ToText"
-    Local $sXPDFToText = _YDGVars_Get("sAppDirVendorPath") & "\pdftotext.exe"
-    Local $sOptions
+	Local $sFuncName = "_XPDF_ToText"
+	Local $sXPDFToText = _YDGVars_Get("sAppDirVendorPath") & "\pdftotext.exe"
+	Local $sOptions
 
-    If NOT FileExists($sPDFFile) Then Return SetError(1, 0, 0)
-    If NOT FileExists($sXPDFToText) Then Return SetError(2, 0, 0)
+	If Not FileExists($sPDFFile) Then Return SetError(1, 0, 0)
+	If Not FileExists($sXPDFToText) Then Return SetError(2, 0, 0)
 
-    If $iFirstPage <> 1 Then $sOptions &= " -f " & $iFirstPage
-    If $iLastPage <> 0 Then $sOptions &= " -l " & $iLastPage
-    If $bLayout = True Then $sOptions &= " -layout"
+	If $iFirstPage <> 1 Then $sOptions &= " -f " & $iFirstPage
+	If $iLastPage <> 0 Then $sOptions &= " -l " & $iLastPage
+	If $bLayout = True Then $sOptions &= " -layout"
 
-    Local $iReturn = ShellExecuteWait ( $sXPDFToText , $sOptions & ' "' & $sPDFFile & '" "' & $sTXTFile & '"', @ScriptDir, "", @SW_HIDE)
-    _YDLogger_Var("$iReturn", $iReturn, $sFuncName, 2)
-    If $iReturn = 0 Then Return 1
-    Return 0
-EndFunc
+	Local $iReturn = ShellExecuteWait($sXPDFToText, $sOptions & ' "' & $sPDFFile & '" "' & $sTXTFile & '"', @ScriptDir, "", @SW_HIDE)
+	_YDLogger_Var("$iReturn", $iReturn, $sFuncName, 2)
+	If $iReturn = 0 Then Return 1
+	Return 0
+EndFunc   ;==>_XPDF_ToText
 
 ; #FUNCTION# ====================================================================================================================
 ; Name...........: _TESSI_DeleteTextInControl
@@ -318,11 +318,11 @@ EndFunc
 ; Author ........: yann.daniel@assurance-maladie.fr
 ; ===============================================================================================================================
 Func _TESSI_DeleteTextInControl($_hTessiPrinter, $_sControlClassName)
-    Local $sFuncName = "_TESSI_DeleteTextInControl"
-    _YDLogger_Log("Suppression du texte dans le controle " & $_sControlClassName, $sFuncName, 2)
-    ControlSetText($_hTessiPrinter, "", $_sControlClassName, "")
-    Return True
-EndFunc
+	Local $sFuncName = "_TESSI_DeleteTextInControl"
+	_YDLogger_Log("Suppression du texte dans le controle " & $_sControlClassName, $sFuncName, 2)
+	ControlSetText($_hTessiPrinter, "", $_sControlClassName, "")
+	Return True
+EndFunc   ;==>_TESSI_DeleteTextInControl
 
 ; #FUNCTION# ====================================================================================================================
 ; Name...........: _TESSI_SetTextInControl
@@ -335,11 +335,11 @@ EndFunc
 ; Author ........: yann.daniel@assurance-maladie.fr
 ; ===============================================================================================================================
 Func _TESSI_SetTextInControl($_hTessiPrinter, $_sControlClassName, $_sText)
-    Local $sFuncName = "_TESSI_SetTextInControl"
-    _YDLogger_Log("Saisie du texte dans le controle " & $_sControlClassName & " : " & $_sText, $sFuncName, 2)
-    ControlSetText($_hTessiPrinter, "", $_sControlClassName, $_sText)
-    Return True
-EndFunc
+	Local $sFuncName = "_TESSI_SetTextInControl"
+	_YDLogger_Log("Saisie du texte dans le controle " & $_sControlClassName & " : " & $_sText, $sFuncName, 2)
+	ControlSetText($_hTessiPrinter, "", $_sControlClassName, $_sText)
+	Return True
+EndFunc   ;==>_TESSI_SetTextInControl
 
 ; #FUNCTION# ====================================================================================================================
 ; Name...........: _TESSI_SelectStringInControl
@@ -352,11 +352,11 @@ EndFunc
 ; Author ........: yann.daniel@assurance-maladie.fr
 ; ===============================================================================================================================
 Func _TESSI_SelectStringInControl($_hTessiPrinter, $_sControlClassName, $_sText)
-    Local $sFuncName = "_TESSI_SelectStringInControl"
-    _YDLogger_Log("Selection du texte dans le controle " & $_sControlClassName & " : " & $_sText, $sFuncName, 2)
-    ControlCommand($_hTessiPrinter, "", $_sControlClassName, "SelectString", $_sText)
-    Return True
-EndFunc
+	Local $sFuncName = "_TESSI_SelectStringInControl"
+	_YDLogger_Log("Selection du texte dans le controle " & $_sControlClassName & " : " & $_sText, $sFuncName, 2)
+	ControlCommand($_hTessiPrinter, "", $_sControlClassName, "SelectString", $_sText)
+	Return True
+EndFunc   ;==>_TESSI_SelectStringInControl
 
 ; #FUNCTION# ====================================================================================================================
 ; Name...........: _TESSI_SetCheckboxInControl
@@ -368,8 +368,8 @@ EndFunc
 ; Author ........: yann.daniel@assurance-maladie.fr
 ; ===============================================================================================================================
 Func _TESSI_SetCheckboxInControl($_hTessiPrinter, $_sControlClassName)
-    Local $sFuncName = "_TESSI_SetCheckboxInControl"
-    _YDLogger_Log("Checkbox du controle " & $_sControlClassName, $sFuncName, 2)
-    ControlFocus($_hTessiPrinter, "",$_sControlClassName)
-    Return True
-EndFunc
+	Local $sFuncName = "_TESSI_SetCheckboxInControl"
+	_YDLogger_Log("Checkbox du controle " & $_sControlClassName, $sFuncName, 2)
+	ControlFocus($_hTessiPrinter, "", $_sControlClassName)
+	Return True
+EndFunc   ;==>_TESSI_SetCheckboxInControl
